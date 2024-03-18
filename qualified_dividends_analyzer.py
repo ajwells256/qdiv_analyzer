@@ -1,12 +1,49 @@
 from datetime import datetime
+from functools import reduce
 from pandas.core.series import Series
 from re import search, compile
-from typing import Union, Tuple
+from typing import List, Union, Tuple
 from locale import atof
 
+from logging import getLogger
+from argparse import Namespace
 
-class DividendAnalyzer():
+from parsers.closed_lot_parser import ClosedLot, read_closed_lots
+from parsers.dividend_parser import Dividend, read_dividends
 
+logger = getLogger(__name__)
+
+
+def get_dividend_exdate(dividend: Dividend, dividend_exdates: Series) -> Union[datetime, None]:
+    parsed_exdates = map(lambda x: datetime(x.year, x.month, x.day), dividend_exdates.keys())
+    applicable_exdates = [exdate for exdate in parsed_exdates if exdate < dividend.date]
+
+    if len(applicable_exdates) == 0:
+        printable_exdates = ','.join(map(lambda d: d.strftime('%Y-%m-%d'), parsed_exdates))
+        logger.error(f"For dividend {dividend} got no valid exdates (out of: {printable_exdates})")
+        return None
+
+    return max(applicable_exdates)
+
+
+def analyze_qualified_dividends(args: Namespace):
+    logger.info("Running qualified dividends analysis")
+    # read all input CSVs
+    closed_lots: List[ClosedLot] = reduce(lambda acc, next: acc + read_closed_lots(next), args.lots, [])
+    dividends: List[Dividend] = reduce(lambda acc, next: acc + read_dividends(next), args.dividends, [])
+
+    # get all securities that had qualified dividends
+    
+
+    # get closed lots for those securities
+
+    # fetch dividend information those securities with holding periods less than 60 days
+
+    # produce an updated csv if there are dividends which have been disqualified
+
+    raise NotImplementedError
+
+class QualifiedDividendAnalyzer():
     _cusip_pattern = compile("CUSIP: ([0-9A-Z]{9})")
     _symbol_pattern = compile("SYMBOL: ([A-Z]{3,4})")
 
@@ -159,7 +196,7 @@ class DividendAnalyzer():
                 if (sale_cusip_search):
                     sale.cusip = sale_cusip_search.group(1)
             if sale.symbol is None:
-            sale_symbol_search = search(DividendAnalyzer._symbol_pattern, sale_desc)
+                sale_symbol_search = search(DividendAnalyzer._symbol_pattern, sale_desc)
             if (sale_symbol_search):
                 sale.symbol = sale_symbol_search.group(1)
 

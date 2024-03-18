@@ -20,6 +20,7 @@ def try_parse_int(input: str) -> bool:
 class UserSelection:
     def __init__(self):
         self.selections: List[Dict[str, str]] = []
+        self.made_new_selection = False
 
     def user_selection(self, prompt: str, sequence: List[str]) -> int:
         print(prompt)
@@ -30,6 +31,7 @@ class UserSelection:
             logger.info(f"Using previously supplied answer '{lookup_result}' to prompt '{prompt}'")
             return sequence.index(lookup_result)
 
+        self.made_new_selection = True
         for idx, s in enumerate(sequence):
             print(f" [{idx}]: {s}")
         selection = input("")
@@ -66,16 +68,17 @@ class UserSelection:
         if not filename:
             filename = f"selections_{datetime.now().strftime('%Y-%m-%d_%H-%M')}.csv"
 
-        if len(self.selections) > 0:
+        if len(self.selections) > 0 and self.made_new_selection:
             with open(filename, "w") as f:
                 writer = csv.DictWriter(f, self.selections[0].keys())
                 writer.writeheader()
                 writer.writerows(self.selections)
             logger.info(f"Wrote user selections to {filename}")
         else:
-            logger.warn("There were no user selections to record.")
+            logger.info("There were no user selections to record.")
 
     def import_selections(self, filename: str):
+        logger.info(f"Importing selections file {filename}")
         with open(filename, "r") as f:
             reader = csv.DictReader(f)
             for row in reader:

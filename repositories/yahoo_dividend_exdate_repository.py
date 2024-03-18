@@ -3,14 +3,15 @@ from yahooquery import Ticker, search  # type: ignore
 from pandas.core.series import Series
 from datetime import datetime
 
-from repositories.dividend_exdate_repository import By, DividendExdateRepository
+from models.security_identifier import By
+from repositories.dividend_exdate_repository import DividendExdateRepository
 
 from logging import getLogger
 
 logger = getLogger(__name__)
 
 
-class DividendsRepository(DividendExdateRepository):
+class YahooDividendExdateRepository(DividendExdateRepository):
     def __init__(self):
         self.cusip_cache = {}
 
@@ -57,7 +58,7 @@ class DividendsRepository(DividendExdateRepository):
         if (len(tickers) > 0):
             yahoo_tickers = Ticker(tickers)
             dividend_history_frame = yahoo_tickers.dividend_history(
-                datetime(tax_year, 1, 1), datetime(tax_year+1, 1, 1))
+                datetime(tax_year, 1, 1), datetime(tax_year + 1, 1, 1))
             dividend_history = dividend_history_frame['dividends']
 
         return dividend_history, self.cusip_cache
