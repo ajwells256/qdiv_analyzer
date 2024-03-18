@@ -37,4 +37,3 @@ def read_closed_lots(filename: str) -> List[ClosedLot]:
             for row in reader
         ]
     return transactions
-

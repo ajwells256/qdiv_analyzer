@@ -3,6 +3,7 @@
 import argparse
 import argcomplete
 from argcomplete.completers import FilesCompleter
+from datetime import datetime
 
 from qualified_dividends_analyzer import analyze_qualified_dividends
 from utilities.config import configure_logger
@@ -16,8 +17,10 @@ def main():
 
     csv_completer = FilesCompleter(("csv"))
     arg_parser.add_argument("-s", "--selections", nargs="?", action="store",
-        help="An CSV file of user selections generated from a previous" +
-        " run which will automatically be applied where applicable").completer = csv_completer  # type: ignore
+        help=(
+            "An CSV file of user selections generated from a previous"
+            " run which will automatically be applied where applicable"
+        )).completer = csv_completer  # type: ignore
 
     subparsers = arg_parser.add_subparsers(required=True, help="subcommands")
 
@@ -30,6 +33,10 @@ def main():
     exdate_parser.add_argument("-d", "--dividends", nargs="+", action='append', required=True,
         help="CSV files that contain the necessary information about dividends"
     ).completer = csv_completer  # type: ignore
+    exdate_parser.add_argument("-y", "--year", nargs=1, action='store', required=False,
+        default=datetime.now().year - 1,
+        help="The year for which to look up dividend information. Defaults to the previous year"
+    )
 
     exdate_parser.set_defaults(func=analyze_qualified_dividends)
 

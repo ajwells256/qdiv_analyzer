@@ -44,6 +44,7 @@ class ClosedLot:
         self.data = data
 
         self.security_id = SecurityIdentifier(symbol=lookup("symbol"), cusip=lookup("cusip"))
+        self.quantity: float = float(lookup("quantity"))
         self.open_date = parse_date(open_date_name)
         self.close_date = parse_date(close_date_name)
 

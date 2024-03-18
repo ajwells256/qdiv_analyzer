@@ -28,7 +28,7 @@ class UserSelection:
 
         lookup_result = self.lookup_selection(prompt, serialized_selections)
         if lookup_result:
-            logger.info(f"Using previously supplied answer '{lookup_result}' to prompt '{prompt}'")
+            logger.debug(f"Using previously supplied answer '{lookup_result}' to prompt '{prompt}'")
             return sequence.index(lookup_result)
 
         self.made_new_selection = True
@@ -73,9 +73,9 @@ class UserSelection:
                 writer = csv.DictWriter(f, self.selections[0].keys())
                 writer.writeheader()
                 writer.writerows(self.selections)
-            logger.info(f"Wrote user selections to {filename}")
+            logger.info(f"Wrote user selections to {filename}. They can be reused with the '-s' flag")
         else:
-            logger.info("There were no user selections to record.")
+            logger.debug("There were no user selections to record.")
 
     def import_selections(self, filename: str):
         logger.info(f"Importing selections file {filename}")

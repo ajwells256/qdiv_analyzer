@@ -1,12 +1,12 @@
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Tuple, Union
+from typing import List, Union
 from pandas.core.series import Series
 
-from models.security_identifier import By
+from models.security_identifier import SecurityIdentifier
 
 
 class DividendExdateRepository(ABC):
     @abstractmethod
-    def get_dividend_exdates(self, by: By, lookup: Union[str, List[str]], tax_year: int) -> Tuple[Union[Series, None], Dict[str, str]]:
+    def get_dividend_exdates(self, lookup: Union[SecurityIdentifier, List[SecurityIdentifier]], tax_year: int) -> Union[Series, None]:
         raise NotImplementedError()
