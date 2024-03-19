@@ -18,7 +18,7 @@ def main():
     csv_completer = FilesCompleter(("csv"))
     arg_parser.add_argument("-s", "--selections", nargs="?", action="store",
         help=(
-            "An CSV file of user selections generated from a previous"
+            "A CSV file of user selections generated from a previous"
             " run which will automatically be applied where applicable"
         )).completer = csv_completer  # type: ignore
 

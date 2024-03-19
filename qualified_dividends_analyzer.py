@@ -41,10 +41,10 @@ def identify_and_separate_disqualified_dividends(
     A new list of dividends will be returned, with the updated original dividends as well as the newly
     created ones.
     '''
-    processed_dividends = [d for d in dividends if d.type != DividendType.QUALIFIED]
+    processed_dividends = [d for d in dividends if d.type != DividendType.Qualified]
     adjustment_occurred = False
     for sec in securities_with_qual_divs:
-        qualified_relevant_dividends = [d for d in dividends if d.security_id == sec and d.type == DividendType.QUALIFIED]
+        qualified_relevant_dividends = [d for d in dividends if d.security_id == sec and d.type == DividendType.Qualified]
         for div in qualified_relevant_dividends:
             exdate = get_dividend_exdate(div, dividend_exdates)
             if exdate:
@@ -102,7 +102,7 @@ def analyze_qualified_dividends(args: Namespace):
     map(lambda x: x.hydrate(yahoo_repository), [divs.security_id for divs in dividends])
 
     # get all securities that had qualified dividends
-    securities_with_qual_divs: List[SecurityIdentifier] = [d.security_id for d in dividends if d.type == DividendType.QUALIFIED]
+    securities_with_qual_divs: List[SecurityIdentifier] = [d.security_id for d in dividends if d.type == DividendType.Qualified]
 
     # get closed lots for those securities which had short holding periods
     lots_with_short_holding_periods = [lot for lot in closed_lots

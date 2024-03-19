@@ -1,5 +1,6 @@
 from enum import Enum
 from datetime import datetime
+from dateutil import parser
 from typing import Dict, cast
 from logging import getLogger
 from locale import atof
@@ -11,19 +12,29 @@ logger = getLogger(__name__)
 
 
 class DividendType(Enum):
-    NONQUALIFIED = 0
-    QUALIFIED = 1
-    SECTION_199A = 2
-    TAX_EXEMPT = 3
+    NonQualified = 0
+    Qualified = 1
+    Section_199A = 2
+    Tax_Exempt = 3
+    Tax_Withheld = 4
+
+    @classmethod
+    def from_str(cls, type: str) -> "DividendType":
+        classification = user_selector.user_selection(
+            f"Which of the following best categorizes this dividend: {type}?", DividendType._member_names_)
+        return DividendType(classification)
 
 
 class Dividend:
     def __init__(self,
         data: Dict[str, object],
-        value_key: str
+        date_key: str,
+        cusip_key: str,
+        value_key: str,
+        type_key: str
     ):
-        self.date: datetime = datetime.now()
-        self.security_id = SecurityIdentifier()
+        self.date: datetime = parser.parse(str(data[date_key]))
+        self.security_id = SecurityIdentifier(cusip=str(data[cusip_key]))
 
         self.value: float = 0
         if data[value_key] is float:
@@ -34,10 +45,13 @@ class Dividend:
             raise Exception("The value of the dividend must be a string or a float")
         data[value_key] = self.value  # coerce to float
 
-        self.type: DividendType = DividendType.NONQUALIFIED
+        self.type: DividendType = DividendType.from_str(str(data[type_key]))
         self.data = data
 
         self._value_key = value_key
+        self._date_key = date_key
+        self._cusip_key = cusip_key
+        self._type_key = type_key
 
     @property
     def symbol(self) -> str:
@@ -51,7 +65,7 @@ class Dividend:
         self.data[self._value_key] -= disqualification_amount
         data_copy[self._value_key] = disqualification_amount
 
-        new_div = Dividend(data_copy, self._value_key)
+        new_div = Dividend(data_copy, self._date_key, self._cusip_key, self._value_key, self._type_key)
         new_div.security_id = self.security_id
         return new_div
 
