@@ -6,6 +6,7 @@ from argcomplete.completers import FilesCompleter
 from datetime import datetime
 
 from qualified_dividends_analyzer import analyze_qualified_dividends
+from summerizer import summarize
 from utilities.config import configure_logger
 from utilities.user_selection import user_selector
 
@@ -24,21 +25,33 @@ def main():
 
     subparsers = arg_parser.add_subparsers(required=True, help="subcommands")
 
-    exdate_parser = subparsers.add_parser(
+    qualified_dividends_analyzer = subparsers.add_parser(
         "dividends", help="Analyze dividend exdates and closed lots to properly classify qualified dividends")
-    exdate_parser.add_argument(
+    qualified_dividends_analyzer.add_argument(
         "-l", "--lots", nargs="+", action='append', required=True, metavar="lots.csv",
         help="CSV files that contain the necessary information about closed lots. May be specified multiple times"
     ).completer = csv_completer  # type: ignore
-    exdate_parser.add_argument("-d", "--dividends", nargs="+", action='append', required=True, metavar="divs.csv",
+    qualified_dividends_analyzer.add_argument("-d", "--dividends", nargs="+", action='append', required=True, metavar="divs.csv",
         help="CSV files that contain the necessary information about dividends. May be specified multiple times."
     ).completer = csv_completer  # type: ignore
-    exdate_parser.add_argument("-y", "--year", nargs=1, action='store', required=False,
+    qualified_dividends_analyzer.add_argument("-y", "--year", nargs=1, action='store', required=False,
         default=datetime.now().year - 1,
         help="The year for which to look up dividend information. Defaults to the previous year"
     )
+    qualified_dividends_analyzer.set_defaults(func=analyze_qualified_dividends)
 
-    exdate_parser.set_defaults(func=analyze_qualified_dividends)
+    summerizer_parser = subparsers.add_parser(
+        "summerize", help="Produce summaries akin to the 1099 summary information table")
+    summerizer_parser.add_argument(
+        "-l", "--lots", nargs="+", action='append', required=False, metavar="lots.csv",
+        help="CSV files that contain the necessary information about closed lots. May be specified multiple times"
+    ).completer = csv_completer  # type: ignore
+    summerizer_parser.add_argument("-d", "--dividends", nargs="+", action='append', required=False, metavar="divs.csv",
+        help="CSV files that contain the necessary information about dividends. May be specified multiple times."
+    ).completer = csv_completer  # type: ignore
+    summerizer_parser.add_argument('-v', '--verbose', action='store_true', required=False,
+                                   help="Whether to print verbose information, akin to the 1099-DIV Detail section")
+    summerizer_parser.set_defaults(func=summarize)
 
     argcomplete.autocomplete(arg_parser)
 
