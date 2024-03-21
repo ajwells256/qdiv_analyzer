@@ -1,7 +1,8 @@
-from datetime import datetime, date
+from datetime import datetime
 from functools import reduce
+from itertools import chain
 from pandas.core.series import Series
-from typing import Dict, List, Union, Tuple
+from typing import List, Union, Tuple, Iterable
 
 from logging import getLogger
 from argparse import Namespace
@@ -32,7 +33,7 @@ def get_dividend_exdate(dividend: Dividend, dividend_exdates: Series) -> Union[d
 def identify_and_separate_disqualified_dividends(
         dividends: List[Dividend],
         lots_with_short_holding_periods: List[ClosedLot],
-        securities_with_qual_divs: List[SecurityIdentifier],
+        securities_with_qual_divs: Iterable[SecurityIdentifier],
         dividend_exdates: Series) -> Tuple[List[Dividend], bool]:
     '''Finds dividends which should be disqualified. For any dividends that should be disqualified,
     part or all of the dividend will be split into a new dividend with the proper type. The original
@@ -43,10 +44,14 @@ def identify_and_separate_disqualified_dividends(
     '''
     processed_dividends = [d for d in dividends if d.type != DividendType.Qualified]
     adjustment_occurred = False
+
+    # ensure that each security gets dealt with once
+    securities_with_qual_divs = set(securities_with_qual_divs)
     for sec in securities_with_qual_divs:
         qualified_relevant_dividends = [d for d in dividends if d.security_id == sec and d.type == DividendType.Qualified]
         for div in qualified_relevant_dividends:
-            exdate = get_dividend_exdate(div, dividend_exdates)
+            cusip_exdate_infos: Series = dividend_exdates[div.symbol]
+            exdate = get_dividend_exdate(div, cusip_exdate_infos)
             if exdate:
                 '''Caveat: Assume that securities analyzed are common stock
                 > If the payment is from a common stock you are required to have held it for more than 60 days
@@ -71,14 +76,17 @@ def identify_and_separate_disqualified_dividends(
                     total_dividend_amount = sum(d.value for d in related_dividends if d.value > 0)
                     qualified_percentage = div.value / total_dividend_amount
 
-                    cusip_exdate_infos: Dict[date, float] = dividend_exdates[div.symbol]
                     dividend_value_per_share = cusip_exdate_infos[exdate.date()]
 
                     # create a new dividend from the disqualified value of the old one
                     disqualified_shares = sum(lot.quantity for lot in disqualified_lots)
                     disqualified_value = round(disqualified_shares * dividend_value_per_share * qualified_percentage, 2)
                     new_div = div.disqualify(disqualified_value)
-                    div.add_note(f"Disqualified ${disqualified_value} due to: {';'.join(map(str, disqualified_lots))}")
+                    div.add_note((f"Disqualified ${disqualified_value}. The dividend on {exdate.date()} had value"
+                                  f" ${dividend_value_per_share} per share. {qualified_percentage * 100:0.2f}% of the dividend"
+                                  f" value was classified as qualified. {disqualified_shares} shares were not held for 61"
+                                  f" days of the relevant 121 day period, which are: {';'.join(map(str, disqualified_lots))}"
+                    ))
                     new_div.add_note(f"Synthesized nonqualified dividend due to: {';'.join(map(str, disqualified_lots))}")
 
                     processed_dividends.append(div)
@@ -94,15 +102,17 @@ def analyze_qualified_dividends(args: Namespace):
     yahoo_repository = YahooRepository()
 
     # read all input CSVs
-    closed_lots: List[ClosedLot] = reduce(lambda acc, next: acc + read_closed_lots(next), args.lots, [])
-    dividends: List[Dividend] = reduce(lambda acc, next: acc + read_dividends(next), args.dividends, [])
+    flattened_lots_files = chain.from_iterable(args.lots)
+    flattened_dividends_files = chain.from_iterable(args.dividends)
+    closed_lots: List[ClosedLot] = reduce(lambda acc, next: acc + read_closed_lots(next), flattened_lots_files, [])
+    dividends: List[Dividend] = reduce(lambda acc, next: acc + read_dividends(next), flattened_dividends_files, [])
 
     # hydrate all the security identifiers
-    map(lambda x: x.hydrate(yahoo_repository), [lots.security_id for lots in closed_lots])
-    map(lambda x: x.hydrate(yahoo_repository), [divs.security_id for divs in dividends])
+    list(map(lambda x: x.hydrate(yahoo_repository), [lots.security_id for lots in closed_lots]))
+    list(map(lambda x: x.hydrate(yahoo_repository), [divs.security_id for divs in dividends]))
 
     # get all securities that had qualified dividends
-    securities_with_qual_divs: List[SecurityIdentifier] = [d.security_id for d in dividends if d.type == DividendType.Qualified]
+    securities_with_qual_divs = set([d.security_id for d in dividends if d.type == DividendType.Qualified])
 
     # get closed lots for those securities which had short holding periods
     lots_with_short_holding_periods = [lot for lot in closed_lots

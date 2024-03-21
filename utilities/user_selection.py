@@ -23,7 +23,6 @@ class UserSelection:
         self.made_new_selection = False
 
     def user_selection(self, prompt: str, sequence: List[str]) -> int:
-        print(prompt)
         serialized_selections = ";".join(sequence)
 
         lookup_result = self.lookup_selection(prompt, serialized_selections)
@@ -32,6 +31,8 @@ class UserSelection:
             return sequence.index(lookup_result)
 
         self.made_new_selection = True
+
+        print(prompt)
         for idx, s in enumerate(sequence):
             print(f" [{idx}]: {s}")
         selection = input("")

@@ -26,6 +26,14 @@ class YahooRepository(DividendExdateRepository, SymbolRepository):
 
         Returns:
         Returns the dividend history, as reported by yahoo finance.
+
+        Example:
+        The series index is a tuple of Symbol, Date
+        Symbol | Date
+        VTI      2023-02-10  0.23
+        VTI      2023-04-11  0.25
+        VOO      2023-02-10  0.26
+
         Caveat, this seems to generally return just a single date (as well as what appears to be the amount per share)
         The date has, in the examples I've checked, been the ex dividend date. For the purposes of analysis, consumers of this
         method should use some method to validate it's the correct date. I'm thinking comparing with the date on which dividends

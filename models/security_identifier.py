@@ -33,8 +33,8 @@ class SecurityIdentifier:
         elif self.symbol and not self.cusip:
             raise NotImplementedError("Need a new method for getting CUSIP from Symbol")
 
-    def __eq__(self, value: object) -> bool:
-        if value is SecurityIdentifier:
+    def __eq__(self, value) -> bool:
+        if isinstance(value, SecurityIdentifier):
             value = cast(SecurityIdentifier, value)
             if (value.cusip and not self.cusip) and (value.symbol and not self.symbol):
                 logger.error("Error comparing securities which don't have the same fields defined: %s %s",
@@ -43,7 +43,18 @@ class SecurityIdentifier:
             return (value.cusip is not None and self.cusip is not None and value.cusip == self.cusip) or \
                 (value.symbol is not None and self.symbol is not None and value.symbol == self.symbol)
         else:
-            return False
+            return NotImplemented
+
+    def __hash__(self) -> int:
+        if self.symbol:
+            return hash(self.symbol)
+        else:
+            raise Exception("Ensure that all security identifiers are hydrated before comparing them")
 
     def __str__(self):
-        return f"SYMB: {self.symbol} CUSIP {self.cusip}"
+        if self.symbol is None:
+            raise Exception("Ensure that all security identifiers are hydrated")
+        result = self.symbol
+        if self.cusip is not None:
+            result += f" ({self.cusip})"
+        return result

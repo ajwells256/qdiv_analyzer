@@ -60,5 +60,5 @@ class ClosedLot:
         timefmt = "%Y-%m-%d"
         return (
             f"Closed Lot: {self.security_id} "
-            f"Open {self.open_date.strftime(timefmt)} Close {self.close_date.strftime(timefmt)}"
+            f"Acquired {self.open_date.strftime(timefmt)} Held {self.holding_period} days"
         )

@@ -1,9 +1,9 @@
 import csv
-from typing import List
+from typing import List, Set
 from datetime import datetime
 from logging import getLogger
 
-from models.dividend import Dividend
+from models.dividend import Dividend, FieldNames
 from utilities.user_selection import user_selector
 
 logger = getLogger(__name__)
@@ -35,11 +35,18 @@ def read_dividends(filename: str) -> List[Dividend]:
 def write_dividends(dividends: List[Dividend]):
     filename = f"adjusted_dividends_{datetime.now().strftime('%Y-%m-%d_%H-%M')}.csv"
 
+    list(map(Dividend.standardized_csv_data, dividends))
+
     if len(dividends) > 0:
-        keys = set(dividends[0].data.keys())
-        keys.add("notes")  # if we're writing dividends, at least some of them will have notes
+        keys: Set[str] = set()
+        for div in dividends:
+            keys.update(div.data.keys())
+
+        # ensure the csv columns are sensibly orderede
+        fieldnames = [FieldNames.RecordDate.value, FieldNames.CUSIP.value, FieldNames.Value.value, FieldNames.Type.value]
+        fieldnames += [nonstandard_key for nonstandard_key in keys if nonstandard_key not in fieldnames]
         with open(filename, "w") as f:
-            writer = csv.DictWriter(f, keys)
+            writer = csv.DictWriter(f, fieldnames)
             writer.writeheader()
             writer.writerows([d.data for d in dividends])
         logger.info(f"Wrote adjusted dividends to {filename}")

@@ -27,11 +27,11 @@ def main():
     exdate_parser = subparsers.add_parser(
         "dividends", help="Analyze dividend exdates and closed lots to properly classify qualified dividends")
     exdate_parser.add_argument(
-        "-l", "--lots", nargs="+", action='append', required=True,
-        help="CSV files that contain the necessary information about closed lots"
+        "-l", "--lots", nargs="+", action='append', required=True, metavar="lots.csv",
+        help="CSV files that contain the necessary information about closed lots. May be specified multiple times"
     ).completer = csv_completer  # type: ignore
-    exdate_parser.add_argument("-d", "--dividends", nargs="+", action='append', required=True,
-        help="CSV files that contain the necessary information about dividends"
+    exdate_parser.add_argument("-d", "--dividends", nargs="+", action='append', required=True, metavar="divs.csv",
+        help="CSV files that contain the necessary information about dividends. May be specified multiple times."
     ).completer = csv_completer  # type: ignore
     exdate_parser.add_argument("-y", "--year", nargs=1, action='store', required=False,
         default=datetime.now().year - 1,
@@ -50,9 +50,13 @@ def main():
     if args.selections:
         user_selector.import_selections(args.selections)
 
-    args.func(args)
-
-    user_selector.record_selections()
+    try:
+        args.func(args)
+    finally:
+        if args.selections:
+            user_selector.record_selections(args.selections)
+        else:
+            user_selector.record_selections()
 
 
 if __name__ == "__main__":
