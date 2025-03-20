@@ -49,6 +49,9 @@ def main():
     summerizer_parser.add_argument("-d", "--dividends", nargs="+", action='append', required=False, metavar="divs.csv",
         help="CSV files that contain the necessary information about dividends. May be specified multiple times."
     ).completer = csv_completer  # type: ignore
+    summerizer_parser.add_argument("-a", "--aggregate", action='store_true', required=False,
+        help="Whether to aggregate the records read from each file into a single summary at the end. Useful when you have 1099s"
+            + " from multiple sources but not when you're comparing original dividends records with adjusted dividends records")
     summerizer_parser.set_defaults(func=summarize)
 
     argcomplete.autocomplete(arg_parser)

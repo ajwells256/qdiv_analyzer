@@ -1,15 +1,13 @@
-from datetime import datetime
 from functools import reduce
 from itertools import chain
 import numpy as np
-from typing import Tuple, Dict, List, cast
+from typing import List
 
 from logging import getLogger
 from argparse import Namespace
 
 # from models.closed_lot import ClosedLot
 from models.dividend import Dividend, DividendType
-from models.security_identifier import SecurityIdentifier
 # from parsers.closed_lot_parser import read_closed_lots
 from parsers.dividend_parser import read_dividends
 

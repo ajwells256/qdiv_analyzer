@@ -30,7 +30,7 @@ def read_dividends(filename: str) -> List[Dividend]:
         assert reader.fieldnames is not None, f"Failed to read field names from {filename}"
         fieldnames = list(reader.fieldnames)
 
-        date_idx = get_fieldname_index(fieldnames, FieldName.RecordDate, "date")
+        date_idx = get_fieldname_index(fieldnames, FieldName.PayoutDate, "date")
         cusip_idx = get_fieldname_index(fieldnames, FieldName.CUSIP, "cusip")
         value_idx = get_fieldname_index(fieldnames, FieldName.Amount, "dollar value")
         type_idx = get_fieldname_index(fieldnames, FieldName.Type, "dividend type")
@@ -53,7 +53,8 @@ def write_dividends(dividends: List[Dividend]):
             keys.update(div.data.keys())
 
         # ensure the csv columns are sensibly orderede
-        fieldnames = [FieldName.RecordDate.value, FieldName.CUSIP.value, FieldName.Amount.value, FieldName.Type.value]
+        fieldnames = [FieldName.PayoutDate.value, FieldName.CUSIP.value, FieldName.Amount.value, FieldName.Type.value,
+                      FieldName.ExDate.value]
         fieldnames += [nonstandard_key for nonstandard_key in keys if nonstandard_key not in fieldnames]
         with open(filename, "w") as f:
             writer = csv.DictWriter(f, fieldnames)

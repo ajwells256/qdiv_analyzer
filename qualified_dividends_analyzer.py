@@ -17,6 +17,10 @@ from repositories.yahoo_repository import YahooRepository
 logger = getLogger(__name__)
 
 
+def is_qualified(div: Dividend) -> bool:
+    return div.type == DividendType.Qualified or div.type == DividendType.Section_199A
+
+
 def get_dividend_exdate(dividend: Dividend, dividend_exdates: Series) -> Union[datetime, None]:
     '''Get the latest exdate still preceding the dividend payment date from the provided list of exdates'''
     parsed_exdates = map(lambda x: datetime(x.year, x.month, x.day), dividend_exdates.keys())
@@ -32,7 +36,7 @@ def get_dividend_exdate(dividend: Dividend, dividend_exdates: Series) -> Union[d
 
 def identify_and_separate_disqualified_dividends(
         dividends: List[Dividend],
-        lots_with_short_holding_periods: List[ClosedLot],
+        all_lots: List[ClosedLot],
         securities_with_qual_divs: Iterable[SecurityIdentifier],
         dividend_exdates: Series) -> Tuple[List[Dividend], bool]:
     '''Finds dividends which should be disqualified. For any dividends that should be disqualified,
@@ -41,31 +45,51 @@ def identify_and_separate_disqualified_dividends(
 
     A new list of dividends will be returned, with the updated original dividends as well as the newly
     created ones.
+
+    :param all_lots: Should be a collection of all lots.
+    :param securities_with_qual_divs: Should be a collection of securities which had Qualified or Section 199A dividends.
     '''
-    processed_dividends = [d for d in dividends if d.type != DividendType.Qualified]
+
+    processed_dividends = [d for d in dividends if not is_qualified(d)]
     adjustment_occurred = False
 
     # ensure that each security gets dealt with once
     securities_with_qual_divs = set(securities_with_qual_divs)
     for sec in securities_with_qual_divs:
-        qualified_relevant_dividends = [d for d in dividends if d.security_id == sec and d.type == DividendType.Qualified]
+        qualified_relevant_dividends = [d for d in dividends if d.security_id == sec
+                                        and is_qualified(d)]
         for div in qualified_relevant_dividends:
             cusip_exdate_infos: Series = dividend_exdates[div.symbol]
             exdate = get_dividend_exdate(div, cusip_exdate_infos)
             if exdate:
                 '''Caveat: Assume that securities analyzed are common stock
+                Qualified Dividends
                 > If the payment is from a common stock you are required to have held it for more than 60 days
                 > during the 121-day period that begins 60 days before the ex-dividend date of the dividend
+                Section 199A Dividends
+                > The QBID may not be taken for any dividend reported in box 5 for dividends received on a share
+                > of REIT or RIC stock that is held for 45 days or less during the 91-day period beginning on the
+                > date that is 45 days before the date on which such share became ex-dividend with respect to the dividend
+
                 To get a dividend, you must hold the stock on the exdate. Therefore, the question of whether a stock
-                was held for 61 of the 121 days can be rephrased as whether the exdate fell within any holding periods
-                shorter than 61 days. Any holding periods longer than 60 days containing the exdate are naturally ok,
+                was held for 61 (or 46) of the 121 days can be rephrased as whether the exdate fell within any holding periods
+                shorter than 61 (or 46) days. Any holding periods longer than 60 (45) days containing the exdate are naturally ok,
                 and any short holding periods not containing the exdate wouldn't have resulted in any dividends in the
                 first place.
+
+                The holder of the stock at closing the day before the exdate / at opening the day of the exdate is the
+                recipient of the dividend. Therefore, the open date comparison is non-inclusive (buying the stock on the
+                exdate doesn't give you the dividend) but the close date comparison is inclusive (selling the stock on the
+                exdate still gives you the dividend).
                 '''
                 disqualified_lots = [
-                    lot for lot in lots_with_short_holding_periods
-                    if lot.security_id == sec and lot.open_date <= exdate and exdate <= lot.close_date
+                    lot for lot in all_lots
+                    if lot.security_id == sec and lot.open_date < exdate and exdate <= lot.close_date
+                    and ((div.type == DividendType.Qualified and lot.holding_period < 61)
+                         or (div.type == DividendType.Section_199A and lot.holding_period < 46))
                 ]
+
+                div.add_exdate(exdate)
 
                 if len(disqualified_lots) > 0:
                     # sometimes a fraction of the dividend is qualified. Calculate the total for the security
@@ -81,16 +105,20 @@ def identify_and_separate_disqualified_dividends(
                     # create a new dividend from the disqualified value of the old one
                     disqualified_shares = sum(lot.quantity for lot in disqualified_lots)
                     disqualified_value = round(disqualified_shares * dividend_value_per_share * qualified_percentage, 2)
-                    new_div = div.disqualify(disqualified_value)
-                    div.add_note((f"Disqualified ${disqualified_value}. The dividend on {exdate.date()} had value"
-                                  f" ${dividend_value_per_share} per share. {qualified_percentage * 100:0.2f}% of the dividend"
-                                  f" value was classified as qualified. {disqualified_shares} shares were not held for 61"
-                                  f" days of the relevant 121 day period, which are: {';'.join(map(str, disqualified_lots))}"
-                    ))
-                    new_div.add_note(f"Synthesized nonqualified dividend due to: {';'.join(map(str, disqualified_lots))}")
+                    qdiv, dqdiv = div.disqualify(disqualified_value)
 
-                    processed_dividends.append(div)
-                    processed_dividends.append(new_div)
+                    min_holding_period, relevant_period = (61, 121) if div.type == DividendType.Qualified else (46, 91)
+                    list_sep = "\n\t - "
+                    qdiv.add_note((f"Disqualified ${disqualified_value} from {div.type.value}. The dividend on {exdate.date()} had value"
+                                  f" ${dividend_value_per_share} per share. {qualified_percentage * 100:0.2f}% of the dividend"
+                                  f" value was classified as {div.type.value}. {disqualified_shares} shares were not held for"
+                                  f" {min_holding_period} days of the relevant {relevant_period} day period, which are as follows:"
+                                  f"\n\t - {list_sep.join(map(str, disqualified_lots))}\n"
+                    ))
+                    dqdiv.add_note(f"Synthesized nonqualified dividend due to:\n\t - {list_sep.join(map(str, disqualified_lots))}")
+
+                    processed_dividends.append(qdiv)
+                    processed_dividends.append(dqdiv)
                     adjustment_occurred = True
                 else:
                     processed_dividends.append(div)
@@ -111,8 +139,9 @@ def analyze_qualified_dividends(args: Namespace):
     list(map(lambda x: x.hydrate(yahoo_repository), [lots.security_id for lots in closed_lots]))
     list(map(lambda x: x.hydrate(yahoo_repository), [divs.security_id for divs in dividends]))
 
-    # get all securities that had qualified dividends
-    securities_with_qual_divs = set([d.security_id for d in dividends if d.type == DividendType.Qualified])
+    # get all securities that had qualified dividends or section 199a dividends
+    securities_with_qual_divs = set([d.security_id for d in dividends
+                                    if is_qualified(d)])
 
     # get closed lots for those securities which had short holding periods
     lots_with_short_holding_periods = [lot for lot in closed_lots
@@ -131,7 +160,7 @@ def analyze_qualified_dividends(args: Namespace):
         # produce an updated csv if there are dividends which have been disqualified
         new_dividends, adjustment_occurred = identify_and_separate_disqualified_dividends(
             dividends,
-            lots_with_short_holding_periods,
+            closed_lots,
             securities_with_qual_divs,
             dividend_exdates
         )

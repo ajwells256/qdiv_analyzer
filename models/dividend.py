@@ -1,7 +1,7 @@
 from enum import Enum
 from datetime import datetime
 from dateutil import parser
-from typing import Dict, cast
+from typing import Dict, Tuple, cast
 from logging import getLogger
 from locale import atof
 
@@ -31,7 +31,8 @@ class DividendType(Enum):
 
 
 class FieldName(Enum):
-    RecordDate = "Record Date"
+    PayoutDate = "Payout Date"
+    ExDate = "Ex-Dividend Date"
     CUSIP = "CUSIP"
     Amount = "Amount"
     Type = "Type"
@@ -78,29 +79,33 @@ class Dividend:
         This is particularly imporant if dividends coming from multiple data sources contain nonstandard field names
         '''
         # replace dictionary keys with their standard values
-        self.data[FieldName.RecordDate.value] = self.data.pop(self._date_key)
+        self.data[FieldName.PayoutDate.value] = self.data.pop(self._date_key)
         self.data[FieldName.CUSIP.value] = self.data.pop(self._cusip_key)
         self.data[FieldName.Amount.value] = self.data.pop(self._value_key)
         self.data[FieldName.Type.value] = self.data.pop(self._type_key)
 
         # update key values to stay internally consistent
-        self._date_key = FieldName.RecordDate.value
+        self._date_key = FieldName.PayoutDate.value
         self._cusip_key = FieldName.CUSIP.value
         self._value_key = FieldName.Amount.value
         self._type_key = FieldName.Type.value
         return self.data
 
-    def disqualify(self, disqualification_amount) -> "Dividend":
-        data_copy = self.data.copy()
+    def disqualify(self, disqualification_amount) -> Tuple["Dividend", "Dividend"]:
+        disqualified_copy = self.data.copy()
+        qualified_copy = self.data.copy()
         disqualification_amount = float(disqualification_amount)
-        self.value -= disqualification_amount
-        self.data[self._value_key] -= disqualification_amount
-        data_copy[self._value_key] = disqualification_amount
-        data_copy[self._type_key] = DividendType.NonQualified.value
 
-        new_div = Dividend(data_copy, self._date_key, self._cusip_key, self._value_key, self._type_key)
-        new_div.security_id = self.security_id
-        return new_div
+        qualified_copy[self._value_key] -= disqualification_amount
+        qualified_div = Dividend(qualified_copy, self._date_key, self._cusip_key, self._value_key, self._type_key)
+
+        disqualified_copy[self._value_key] = disqualification_amount
+        disqualified_copy[self._type_key] = DividendType.NonQualified.value
+        disqualified_div = Dividend(disqualified_copy, self._date_key, self._cusip_key, self._value_key, self._type_key)
+
+        disqualified_div.security_id = self.security_id
+        qualified_div.security_id = self.security_id
+        return qualified_div, disqualified_div
 
     def add_note(self, note: str):
         if "notes" in self.data and self.data["notes"] is str:
@@ -111,6 +116,9 @@ class Dividend:
                 logger.warn("Origianl notes field of non-string type will be renamed to 'original_notes' as a note is being added")
                 self.data["original_notes"] = self.data["notes"]
             self.data["notes"] = note
+
+    def add_exdate(self, exdate: datetime):
+        self.data[FieldName.ExDate.value] = exdate.date()
 
     def __str__(self):
         return f"Dividend: {self.security_id} DATE {self.date} AMOUNT {self.value}"

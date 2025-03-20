@@ -5,10 +5,10 @@
             "name": "Python Debugger: Dividends with Arguments",
             "type": "debugpy",
             "request": "launch",
-            "program": "security_analyzer.py -s selections_debug.csv dividends",
+            "program": "security_analyzer.py -s ../selections_debug.csv dividends",
             "console": "integratedTerminal",
             // "args": "${command:pickArgs}"
-            "args": "-l ../Taxable_Closed_Lots.csv -d ../ind_investment_dividends.csv "
+            "args": "-l ../Taxable_Closed_Lots.csv -d ../ind_invest_2_dividends.csv "
         }
     ]
 }
