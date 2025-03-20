@@ -59,6 +59,6 @@ class ClosedLot:
     def __str__(self):
         timefmt = "%Y-%m-%d"
         return (
-            f"Closed Lot: {self.security_id} "
+            f"Closed Lot: {self.quantity} of {self.security_id} "
             f"Acquired {self.open_date.strftime(timefmt)} Held {self.holding_period} days"
         )
